@@ -1,0 +1,12 @@
+{
+  "tests": [
+    "test_tell_v3.py"
+  ],
+  "documentation": [
+    "README.md"
+  ],
+  "entry_points": [
+    "tell.py"
+  ],
+  "version": 1
+}

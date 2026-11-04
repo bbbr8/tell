@@ -1,0 +1,5 @@
+tier order: F0 > derived > synthetic.
+anchor A "synthetic bench measurement".
+fact units(3) @A tier synthetic.
+rule double: capacity(X) :- units(V), X = 2 * V.
+show capacity(X).
