@@ -1476,8 +1476,20 @@ if __name__ == "__main__":
         elif command == "lint": sub.add_argument("--strict", action="store_true")
         else: sub.add_argument("--pin", action="store_true")
     sub = commands.add_parser("diff"); sub.add_argument("run_a"); sub.add_argument("run_b")
+    plan = commands.add_parser("explain-gain", help="find minimal sufficient hypothetical additions")
+    plan.add_argument("file")
+    plan.add_argument("goal")
+    plan.add_argument("--candidate", action="append", required=True)
+    plan.add_argument("--width", type=positive, default=3)
+    plan.add_argument("--budget", type=positive, default=1000)
     args = parser.parse_args()
     limits = {k: getattr(args, k) for k in ("max_facts", "max_rounds", "max_bindings") if hasattr(args, k)}
+    if args.command == "explain-gain":
+        from tell_advanced import explain_gain
+        result = explain_gain(sys.modules[__name__], input_snapshot(args.file), args.goal,
+                              args.candidate, args.width, args.budget)
+        print(json.dumps(result, indent=2))
+        raise SystemExit(0)
     if args.command == "run": run(args.file, args.why, args.json, args.md, limits, args.strict_sources)
     elif args.command == "query": query(args.file, args.atom, args.json, args.why, args.limit, limits, args.strict_sources)
     elif args.command == "lint": lint(args.file, args.strict, limits)

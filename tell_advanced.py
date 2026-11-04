@@ -294,3 +294,45 @@ def robustness(r, base, goal, max_remove=2, budget=64, inputs=None):
                          'variants_evaluated': evaluated, 'supersets_pruned': pruned, 'evaluation_failures': failures,
                          'budget': budget, 'complete_within_width': complete, 'truncated': examined < total},
             'scope': 'loaded model sensitivity; input withdrawal does not establish falsity, real-world causation or completeness of external records'}
+
+def explain_gain(runtime, base, target, candidates, width, budget):
+    """Search in cardinality order; a strict subset is always visited first."""
+    from itertools import combinations
+
+    goal = _ground(runtime, target)
+    choices = list(dict.fromkeys(_ground(runtime, item) for item in candidates))
+    if "synthetic" not in base.tiers:
+        runtime.die("hypotheses require the synthetic tier")
+    _, digest = _prepare(runtime, base)
+    baseline = _observation(runtime, base, goal, details=True)
+    if not _known(baseline):
+        runtime.die("baseline evaluation incomplete")
+    solutions = []
+    examined = 0
+    if _holds(baseline):
+        solutions.append(dict(additions=[], observation=baseline))
+    complete = True
+    minimal = []
+    if not solutions:
+        for size in range(1, min(width, len(choices)) + 1):
+            for indices in combinations(range(len(choices)), size):
+                subset = frozenset(indices)
+                if any(hit <= subset for hit in minimal):
+                    continue
+                if examined == budget:
+                    complete = False
+                    break
+                assumed = [choices[i] for i in indices]
+                result = _observation(runtime, base, goal, assumed=assumed, details=True)
+                examined += 1
+                if not _known(result):
+                    runtime.die("candidate evaluation incomplete")
+                if _holds(result):
+                    minimal.append(subset)
+                    solutions.append(dict(additions=[runtime.fmt_atom(a) for a in assumed],
+                                          observation=result))
+            if not complete:
+                break
+    return dict(query=runtime.fmt_atom(goal), snapshot_sha256=digest, baseline=baseline,
+                minimal_sufficient_sets=solutions, width=width, examined=examined,
+                complete_within_width=complete)

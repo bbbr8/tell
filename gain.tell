@@ -1,0 +1,3 @@
+tier order: derived > synthetic.
+rule paired: ready :- power, signal.
+rule manual: ready :- override.
