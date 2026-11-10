@@ -1,0 +1,3 @@
+tier order: derived > synthetic.
+fact power tier synthetic.
+rule r: ready :- power.

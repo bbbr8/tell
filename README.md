@@ -1,5 +1,13 @@
 # TELL
 
+`python tell_compare.py examples/compare.json` compares proposed rule models on a
+finite set of ground queries. Expected statuses produce concrete counterexamples;
+observed outcome classes suggest a distinguishing next query without counting
+duplicate models as extra evidence. Program/dependency hashes and source-pin
+checks are retained. Evaluation limits stay partial. Agreement covers supplied
+queries; it does not establish program equivalence. Model generation remains
+external, and programs with file dependencies are trusted local inputs.
+
 Testimony, Experience and Language Logic. This standalone runtime evaluates anchored facts and rules, propagates premise tiers, performs exact arithmetic and records derivations. Its advanced commands analyze dependencies, test hypothetical changes and search for minimal input withdrawals.
 
     python tell.py run example.tell
@@ -14,3 +22,7 @@ The example derives capacity(6) from three synthetic units. Use --help on a comm
     python tell.py explain-gain gain.tell ready --candidate power --candidate signal --candidate override
 
 The example returns two inclusion-minimal ways to derive ready. Override suffices by itself, or power and signal suffice together. The command evaluates hypothetical additions against one parsed snapshot, applies normal gates and defeaters, and returns the observation behind each result. An already-held goal has an empty sufficient set. Choose --width for the maximum number of simultaneous additions and --budget for the evaluation count. Consult complete_within_width before treating the list as exhaustive.
+
+## Evaluation hardening
+
+Comparison pins the bytes actually loaded for the main program and every include, plus declared anchor files. Changed or deleted inputs produce per-candidate `INPUT_CHANGED`, no observations, and no accepted result. `program_files`, `anchor_files` and `inputs_unchanged` record checked fingerprints. These are endpoint content checks on trusted local inputs, not file locks; a transient edit restored between checks may go undetected.

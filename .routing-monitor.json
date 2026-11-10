@@ -1,12 +1,15 @@
 {
   "tests": [
-    "test_tell_v3.py"
+    "test_tell_v3.py",
+    "test_compare.py",
+    "test_compare_hardening.py"
   ],
   "documentation": [
     "README.md"
   ],
   "entry_points": [
-    "tell.py"
+    "tell.py",
+    "tell_compare.py"
   ],
   "version": 1
 }

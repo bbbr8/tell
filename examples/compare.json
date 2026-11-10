@@ -1,0 +1,24 @@
+{
+  "candidates": [
+    {
+      "id": "requires_both",
+      "path": "requires-both.tell"
+    },
+    {
+      "id": "missing_condition",
+      "path": "missing-condition.tell"
+    }
+  ],
+  "queries": [
+    {
+      "id": "target",
+      "goal": "ready",
+      "expected": "ABSENT"
+    },
+    {
+      "id": "control",
+      "goal": "power",
+      "expected": "HOLD"
+    }
+  ]
+}

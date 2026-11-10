@@ -337,6 +337,7 @@ class Program:
         self.shows = []
         self.base_dir = "."
         self.source_files = []
+        self.program_file_hashes = {}  # fingerprints of actual program bytes read
         self._json_cache = {}
         self._read_sources = {}
         self.lines = []            # (file, ln, raw) for lint/verify --pin
@@ -433,8 +434,13 @@ def _parse_into(p, text, fname):
             if not os.path.exists(inc):
                 die(f"{fname}:{ln}: include not found: {inc}")
             p.source_files.append(inc)
-            with open(inc, encoding="utf-8") as source:
-                parse_into(p, source.read(), inc)
+            with open(inc, 'rb') as source:
+                raw=source.read()
+            identity=os.path.realpath(inc);sha=hashlib.sha256(raw).hexdigest()
+            if identity in p.program_file_hashes and p.program_file_hashes[identity]!=sha:
+                die(f"program changed during load: {inc}")
+            p.program_file_hashes[identity]=sha
+            parse_into(p, raw.decode('utf-8'), inc)
             continue
         m = re.match(r'^anchor\s+([A-Za-z0-9_]+)\s+"([^"]*)"(.*)$', line)
         if m:
@@ -607,10 +613,13 @@ def validate_program(p):
 
 def load(path):
     try:
-        text = Path(path).read_text(encoding="utf-8")
+        raw = Path(path).read_bytes()
+        text = raw.decode('utf-8')
     except (OSError, UnicodeError) as error:
         die(f"cannot read program {path}: {error}")
-    return parse(text, path, os.path.dirname(os.path.abspath(path)))
+    p=parse(text, path, os.path.dirname(os.path.abspath(path)))
+    p.program_file_hashes[os.path.realpath(path)]=hashlib.sha256(raw).hexdigest()
+    return p
 
 
 # ---------------------------------------------------------------- eval
