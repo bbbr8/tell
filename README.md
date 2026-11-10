@@ -26,3 +26,8 @@ The example returns two inclusion-minimal ways to derive ready. Override suffice
 ## Evaluation hardening
 
 Comparison pins the bytes actually loaded for the main program and every include, plus declared anchor files. Changed or deleted inputs produce per-candidate `INPUT_CHANGED`, no observations, and no accepted result. `program_files`, `anchor_files` and `inputs_unchanged` record checked fingerprints. These are endpoint content checks on trusted local inputs, not file locks; a transient edit restored between checks may go undetected.
+
+## Local-only distribution
+
+Run the CLI or Python modules locally. No HTTP endpoint, hosting setup or provider
+account is required. [Public distribution policy](PUBLIC_DISTRIBUTION.md).

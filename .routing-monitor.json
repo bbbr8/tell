@@ -2,7 +2,9 @@
   "tests": [
     "test_tell_v3.py",
     "test_compare.py",
-    "test_compare_hardening.py"
+    "test_compare_hardening.py",
+    "test_public_distribution.py",
+    "test_public_distribution.py"
   ],
   "documentation": [
     "README.md"
@@ -11,5 +13,9 @@
     "tell.py",
     "tell_compare.py"
   ],
-  "version": 1
+  "version": 1,
+  "docs": [
+    "PUBLIC_DISTRIBUTION.md",
+    "PUBLIC_DISTRIBUTION.md"
+  ]
 }
