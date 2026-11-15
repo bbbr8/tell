@@ -75,3 +75,13 @@ class ModelHardening(unittest.TestCase):
         self.assertEqual(r['accepted'],['p'])
         self.assertEqual(r['candidates'][0]['anchor_files'][str(data.resolve())],hashlib.sha256(data.read_bytes()).hexdigest())
 
+
+    def test_missing_candidate_preserves_other_results(self):
+        self.packet['candidates'].insert(0, {'id': 'missing', 'path': 'missing.tell'})
+        result = compare_models(self.packet, self.root)
+        self.assertEqual(result['state'], 'PARTIAL')
+        self.assertEqual(result['accepted'], ['p'])
+        missing = result['candidates'][0]
+        self.assertEqual(missing['error'], 'INPUT_UNAVAILABLE')
+        self.assertIsNone(missing['program_sha256'])
+        self.assertEqual(missing['observations'], [])

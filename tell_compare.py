@@ -40,11 +40,15 @@ def compare_models(packet,root=Path('.')):
         if not isinstance(candidate,dict) or set(candidate)!={'id','path'} or not isinstance(candidate['id'],str) or not candidate['id'] or candidate['id'] in seen:raise ValueError('Candidates need unique id and relative path')
         seen.add(candidate['id']);path=(Path(root)/candidate['path']).resolve()
         if not path.is_relative_to(Path(root).resolve()):raise ValueError('Candidate path leaves packet directory')
-        if path.stat().st_size>1048576:raise ValueError('Model exceeds 1 MiB')
-        raw=path.read_bytes();row={'id':candidate['id'],'program_sha256':hashlib.sha256(raw).hexdigest(),
-                                   'complete':False,'observations':[],'counterexamples':[]}
+        row = {'id': candidate['id'], 'program_sha256': None, 'complete': False,
+               'observations': [], 'counterexamples': []}
         err=io.StringIO()
         try:
+            with path.open('rb') as program:
+                raw = program.read(1048577)
+            if len(raw) > 1048576:
+                raise ValueError('Model exceeds 1 MiB')
+            row['program_sha256'] = hashlib.sha256(raw).hexdigest()
             with contextlib.redirect_stderr(err):
                 model=tell.input_snapshot(str(path),limits={'max_facts':10000,'max_rounds':200,'max_bindings':20000},strict_sources=True)
                 files=dict(model.program_file_hashes)
