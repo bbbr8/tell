@@ -36,3 +36,26 @@ class ModelComparison(unittest.TestCase):
     def test_path_boundary(self):
         self.packet['candidates'][0]['path']='../outside'
         with self.assertRaises(ValueError):compare_models(self.packet,self.root)
+
+    def test_follow_up_conditions_on_known_answers_and_collapses_copies(self):
+        (self.root / 'third.tell').write_text('fact power tier synthetic.\nfact spare tier synthetic.\n')
+        self.packet['candidates'] += [{'id': 'third', 'path': 'third.tell'},
+                                      {'id': 'duplicate', 'path': 'third.tell'}]
+        self.packet['queries'].append({'id': 'spare', 'goal': 'spare'})
+        result = compare_models(self.packet, self.root)
+        follow = result['status_follow_up']
+        self.assertEqual(follow['query']['id'], 'spare')
+        self.assertEqual(follow['eligible_status_classes'], 2)
+        self.assertEqual(follow['largest_remaining_class_count'], 1)
+        self.assertEqual(follow['branches']['HOLD']['candidates'], ['duplicate', 'third'])
+        self.assertEqual(follow['branches']['ABSENT']['candidates'], ['good'])
+
+    def test_follow_up_distinguishes_conflict_from_agreement(self):
+        self.assertEqual(compare_models(self.packet, self.root)['status_follow_up']['state'],
+                         'NO_STATUS_DISAGREEMENT')
+        self.packet['queries'][1]['expected'] = 'ABSENT'
+        self.assertEqual(compare_models(self.packet, self.root)['status_follow_up']['state'],
+                         'NO_MATCHING_MODEL')
+        self.packet['candidates'] = [{'id': 'gone', 'path': 'missing.tell'}]
+        self.assertEqual(compare_models(self.packet, self.root)['status_follow_up']['state'],
+                         'NO_COMPLETE_MODEL')

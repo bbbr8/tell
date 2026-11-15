@@ -25,6 +25,38 @@ def encoded(value):return json.dumps(value,sort_keys=True,separators=(',',':'),a
 def digest(value):return hashlib.sha256(encoded(value).encode()).hexdigest()
 
 
+def status_follow_up(rows, queries):
+    """Plan a status question among complete models consistent with supplied answers."""
+    pending = [i for i, query in enumerate(queries) if 'expected' not in query]
+    signatures = {}
+    for row in rows:
+        if row['complete'] and row['matches_expectations']:
+            signature = tuple(row['observations'][i]['state'] for i in pending)
+            signatures.setdefault(signature, []).append(row['id'])
+    report = {'eligible_status_classes': len(signatures), 'query': None,
+              'incomplete_candidates': sorted(r['id'] for r in rows if not r['complete'])}
+    if not signatures:
+        report['state'] = 'NO_MATCHING_MODEL' if any(r['complete'] for r in rows) else 'NO_COMPLETE_MODEL'
+        return report
+    if len(signatures) == 1:
+        return {**report, 'state': 'NO_STATUS_DISAGREEMENT'}
+
+    def partition_score(column):
+        counts = Counter(signature[column] for signature in signatures)
+        return max(counts.values()), -len(counts), column
+
+    column = min(range(len(pending)), key=partition_score)
+    branches = {}
+    for signature, names in signatures.items():
+        branch = branches.setdefault(signature[column], {'status_classes': 0, 'candidates': []})
+        branch['status_classes'] += 1
+        branch['candidates'].extend(names)
+    for branch in branches.values():
+        branch['candidates'].sort()
+    return {**report, 'state': 'NEEDS_STATUS', 'query': dict(queries[pending[column]]),
+            'branches': branches, 'largest_remaining_class_count': partition_score(column)[0]}
+
+
 def compare_models(packet,root=Path('.')):
     if not isinstance(packet,dict):raise ValueError('Comparison packet must be an object')
     candidates=packet.get('candidates');queries=packet.get('queries')
@@ -99,6 +131,7 @@ def compare_models(packet,root=Path('.')):
     return {'schema':'tell.compare.v1','runtime_version':tell.VERSION,'query_sha256':digest(queries),
             'state':'PARTIAL' if any(not r['complete'] for r in rows) else 'FINITE_DISAGREEMENT' if len(classes)>1 else 'FINITE_AGREEMENT',
             'candidates':rows,'classes':classes,'next_query':next_query,
+            'status_follow_up':status_follow_up(rows, queries),
             'accepted':[r['id'] for r in rows if r['complete'] and r['matches_expectations']] if expected_supplied else [],
             'expected_statuses_supplied':expected_supplied,
             'scope':'declared finite ground queries; agreement does not establish program equivalence'}
