@@ -38,3 +38,9 @@ those answers, groups identical remaining status predictions, and minimizes the
 largest group of predictions that could survive one answer. Each branch lists
 its models. Copies and tier-only differences cannot add votes. Incomplete
 candidates are listed separately; the result is conditional on the supplied models.
+
+Set `"status_objective": "expected_remaining"` in a comparison packet to choose
+the query minimizing the expected number of remaining status classes. Each
+distinct eligible prediction signature receives equal weight. For answer groups
+of sizes 1 and 2, the expected remainder is (1² + 2²)/3 = 5/3. The report
+includes the reduced fraction. The default objective remains `minimax`.

@@ -59,3 +59,24 @@ class ModelComparison(unittest.TestCase):
         self.packet['candidates'] = [{'id': 'gone', 'path': 'missing.tell'}]
         self.assertEqual(compare_models(self.packet, self.root)['status_follow_up']['state'],
                          'NO_COMPLETE_MODEL')
+
+class ExpectedRemainingTests(unittest.TestCase):
+    def test_expected_size_and_minimax_can_select_different_queries(self):
+        from tell_compare import status_follow_up
+        # The two three-way splits have sizes (4,3,1) and (4,2,2).
+        rows = []
+        for i, (first, second) in enumerate(zip('AAAABBBC', 'AAAABBCC')):
+            signature = [first, second] + [str(i == j) for j in range(8)]
+            rows.append(dict(id=str(i), complete=True, matches_expectations=True,
+                             observations=[dict(state=value) for value in signature]))
+        queries = [dict(id=i) for i in range(10)]
+        default = status_follow_up(rows, queries)
+        self.assertEqual(default['query']['id'], 0)
+        self.assertEqual(default['expected_remaining_classes_fraction'], '13/4')
+        rows.append({**rows[0], 'id': 'copy'})
+        alternate = status_follow_up(rows, queries, 'expected_remaining')
+        self.assertEqual(alternate['query']['id'], 1)
+        self.assertEqual(alternate['expected_remaining_classes_fraction'], '3')
+        self.assertEqual(alternate['largest_remaining_class_count'], 4)
+        with self.assertRaises(ValueError):
+            status_follow_up(rows, queries, 'unknown')
