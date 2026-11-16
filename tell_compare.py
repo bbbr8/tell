@@ -9,6 +9,7 @@ from collections import Counter
 import contextlib
 import hashlib
 from fractions import Fraction
+from functools import lru_cache
 import io
 import json
 from pathlib import Path
@@ -26,10 +27,42 @@ def encoded(value):return json.dumps(value,sort_keys=True,separators=(',',':'),a
 def digest(value):return hashlib.sha256(encoded(value).encode()).hexdigest()
 
 
+def optimal_status_depth(signatures):
+    """Find the smallest worst-case number of adaptive questions for these classes."""
+    rows = list(signatures)
+    partitions = {}
+    for column in range(len(rows[0])):
+        masks = {}
+        for i, row in enumerate(rows):
+            masks[row[column]] = masks.get(row[column], 0) | (1 << i)
+        # Columns inducing the same partition give the same future information.
+        partition = tuple(sorted(masks.values()))
+        if len(partition) > 1:
+            partitions.setdefault(partition, column)
+
+    @lru_cache(maxsize=None)
+    def solve(remaining):
+        if remaining.bit_count() == 1:
+            return 0, None
+        best = None
+        for masks, column in partitions.items():
+            children = [mask & remaining for mask in masks if mask & remaining]
+            if len(children) < 2:
+                continue
+            depth = 1 + max(solve(child)[0] for child in children)
+            if best is None or depth < best[0]:
+                best = depth, column
+                if depth == 1:
+                    break
+        return best
+
+    return solve((1 << len(rows)) - 1)
+
+
 def status_follow_up(rows, queries, objective="minimax"):
     """Plan a status question among complete models consistent with supplied answers."""
-    if objective not in ("minimax", "expected_remaining"):
-        raise ValueError("status_objective must be minimax or expected_remaining")
+    if objective not in ("minimax", "expected_remaining", "optimal_depth"):
+        raise ValueError("status_objective must be minimax, expected_remaining or optimal_depth")
     pending = [i for i, query in enumerate(queries) if 'expected' not in query]
     signatures = {}
     for row in rows:
@@ -42,6 +75,8 @@ def status_follow_up(rows, queries, objective="minimax"):
         report['state'] = 'NO_MATCHING_MODEL' if any(r['complete'] for r in rows) else 'NO_COMPLETE_MODEL'
         return report
     if len(signatures) == 1:
+        if objective == "optimal_depth":
+            report.update(objective=objective, minimum_worst_case_questions=0)
         return {**report, 'state': 'NO_STATUS_DISAGREEMENT'}
 
     def partition_score(column):
@@ -50,7 +85,11 @@ def status_follow_up(rows, queries, objective="minimax"):
             return sum(size * size for size in counts.values()), max(counts.values()), column
         return max(counts.values()), -len(counts), column
 
-    column = min(range(len(pending)), key=partition_score)
+    if objective == "optimal_depth":
+        depth, column = optimal_status_depth(signatures)
+        report["minimum_worst_case_questions"] = depth
+    else:
+        column = min(range(len(pending)), key=partition_score)
     branches = {}
     for signature, names in signatures.items():
         branch = branches.setdefault(signature[column], {'status_classes': 0, 'candidates': []})

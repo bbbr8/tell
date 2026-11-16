@@ -80,3 +80,26 @@ class ExpectedRemainingTests(unittest.TestCase):
         self.assertEqual(alternate['largest_remaining_class_count'], 4)
         with self.assertRaises(ValueError):
             status_follow_up(rows, queries, 'unknown')
+
+class OptimalDepthTests(unittest.TestCase):
+    def test_optimal_tree_improves_on_greedy_split(self):
+        from tell_compare import status_follow_up
+        signatures = ['01000','11111','10100','00111','00001','01011','11011','00101']
+        rows = [dict(id=str(i), complete=True, matches_expectations=True,
+                     observations=[dict(state='HOLD' if bit=='1' else 'ABSENT') for bit in signature])
+                for i, signature in enumerate(signatures)]
+        queries = [dict(id=i) for i in range(5)]
+        def worst_case(group, objective):
+            report = status_follow_up(group, queries, objective)
+            if report['query'] is None:
+                return 0
+            i = report['query']['id']
+            branches = {}
+            for row in group:
+                branches.setdefault(row['observations'][i]['state'], []).append(row)
+            return 1 + max(worst_case(branch, objective) for branch in branches.values())
+        # Eight distinct classes and binary answers require at least three questions.
+        self.assertEqual(worst_case(rows, 'minimax'), 4)
+        self.assertEqual(worst_case(rows, 'optimal_depth'), 3)
+        self.assertEqual(status_follow_up(rows, queries, 'optimal_depth')['minimum_worst_case_questions'], 3)
+        self.assertEqual(status_follow_up(rows[:1], queries, 'optimal_depth')['minimum_worst_case_questions'], 0)
