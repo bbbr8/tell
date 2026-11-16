@@ -36,3 +36,70 @@ class ModelComparison(unittest.TestCase):
     def test_path_boundary(self):
         self.packet['candidates'][0]['path']='../outside'
         with self.assertRaises(ValueError):compare_models(self.packet,self.root)
+
+    def test_follow_up_conditions_on_known_answers_and_collapses_copies(self):
+        (self.root / 'third.tell').write_text('fact power tier synthetic.\nfact spare tier synthetic.\n')
+        self.packet['candidates'] += [{'id': 'third', 'path': 'third.tell'},
+                                      {'id': 'duplicate', 'path': 'third.tell'}]
+        self.packet['queries'].append({'id': 'spare', 'goal': 'spare'})
+        result = compare_models(self.packet, self.root)
+        follow = result['status_follow_up']
+        self.assertEqual(follow['query']['id'], 'spare')
+        self.assertEqual(follow['eligible_status_classes'], 2)
+        self.assertEqual(follow['largest_remaining_class_count'], 1)
+        self.assertEqual(follow['branches']['HOLD']['candidates'], ['duplicate', 'third'])
+        self.assertEqual(follow['branches']['ABSENT']['candidates'], ['good'])
+
+    def test_follow_up_distinguishes_conflict_from_agreement(self):
+        self.assertEqual(compare_models(self.packet, self.root)['status_follow_up']['state'],
+                         'NO_STATUS_DISAGREEMENT')
+        self.packet['queries'][1]['expected'] = 'ABSENT'
+        self.assertEqual(compare_models(self.packet, self.root)['status_follow_up']['state'],
+                         'NO_MATCHING_MODEL')
+        self.packet['candidates'] = [{'id': 'gone', 'path': 'missing.tell'}]
+        self.assertEqual(compare_models(self.packet, self.root)['status_follow_up']['state'],
+                         'NO_COMPLETE_MODEL')
+
+class ExpectedRemainingTests(unittest.TestCase):
+    def test_expected_size_and_minimax_can_select_different_queries(self):
+        from tell_compare import status_follow_up
+        # The two three-way splits have sizes (4,3,1) and (4,2,2).
+        rows = []
+        for i, (first, second) in enumerate(zip('AAAABBBC', 'AAAABBCC')):
+            signature = [first, second] + [str(i == j) for j in range(8)]
+            rows.append(dict(id=str(i), complete=True, matches_expectations=True,
+                             observations=[dict(state=value) for value in signature]))
+        queries = [dict(id=i) for i in range(10)]
+        default = status_follow_up(rows, queries)
+        self.assertEqual(default['query']['id'], 0)
+        self.assertEqual(default['expected_remaining_classes_fraction'], '13/4')
+        rows.append({**rows[0], 'id': 'copy'})
+        alternate = status_follow_up(rows, queries, 'expected_remaining')
+        self.assertEqual(alternate['query']['id'], 1)
+        self.assertEqual(alternate['expected_remaining_classes_fraction'], '3')
+        self.assertEqual(alternate['largest_remaining_class_count'], 4)
+        with self.assertRaises(ValueError):
+            status_follow_up(rows, queries, 'unknown')
+
+class OptimalDepthTests(unittest.TestCase):
+    def test_optimal_tree_improves_on_greedy_split(self):
+        from tell_compare import status_follow_up
+        signatures = ['01000','11111','10100','00111','00001','01011','11011','00101']
+        rows = [dict(id=str(i), complete=True, matches_expectations=True,
+                     observations=[dict(state='HOLD' if bit=='1' else 'ABSENT') for bit in signature])
+                for i, signature in enumerate(signatures)]
+        queries = [dict(id=i) for i in range(5)]
+        def worst_case(group, objective):
+            report = status_follow_up(group, queries, objective)
+            if report['query'] is None:
+                return 0
+            i = report['query']['id']
+            branches = {}
+            for row in group:
+                branches.setdefault(row['observations'][i]['state'], []).append(row)
+            return 1 + max(worst_case(branch, objective) for branch in branches.values())
+        # Eight distinct classes and binary answers require at least three questions.
+        self.assertEqual(worst_case(rows, 'minimax'), 4)
+        self.assertEqual(worst_case(rows, 'optimal_depth'), 3)
+        self.assertEqual(status_follow_up(rows, queries, 'optimal_depth')['minimum_worst_case_questions'], 3)
+        self.assertEqual(status_follow_up(rows[:1], queries, 'optimal_depth')['minimum_worst_case_questions'], 0)

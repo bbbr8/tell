@@ -31,3 +31,23 @@ Comparison pins the bytes actually loaded for the main program and every include
 
 Run the CLI or Python modules locally. No HTTP endpoint, hosting setup or provider
 account is required. [Public distribution policy](PUBLIC_DISTRIBUTION.md).
+
+`status_follow_up` uses the expected answers already supplied to identify the
+next unanswered ground query. It considers complete models consistent with
+those answers, groups identical remaining status predictions, and minimizes the
+largest group of predictions that could survive one answer. Each branch lists
+its models. Copies and tier-only differences cannot add votes. Incomplete
+candidates are listed separately; the result is conditional on the supplied models.
+
+Set `"status_objective": "expected_remaining"` in a comparison packet to choose
+the query minimizing the expected number of remaining status classes. Each
+distinct eligible prediction signature receives equal weight. For answer groups
+of sizes 1 and 2, the expected remainder is (1² + 2²)/3 = 5/3. The report
+includes the reduced fraction. The default objective remains `minimax`.
+
+Set `"status_objective": "optimal_depth"` to minimize the worst-case number of
+questions needed to identify one eligible prediction class. TELL searches the
+finite decision tree using the supplied queries and caches repeated subsets.
+After receiving an answer, set that query's expected status and run again.
+`minimum_worst_case_questions` counts the selected question and all remaining
+ones on the longest optimal branch. Equal-depth choices retain input order.
